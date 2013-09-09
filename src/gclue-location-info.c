@@ -26,6 +26,7 @@
 #include <math.h>
 
 #define EARTH_RADIUS_KM 6372.795
+#define EPSILON (1e-10)
 
 /**
  * SECTION:gclue-location
@@ -408,4 +409,30 @@ gclue_location_info_get_distance_from (GClueLocationInfo *loca,
             sin (dlon / 2) * sin (dlon / 2) * cos (lat1) * cos (lat2);
         c = 2 * atan2 (sqrt (a), sqrt (1-a));
         return EARTH_RADIUS_KM * c;
+}
+
+/**
+ * gclue_location_info_equal:
+ * @loca: a #GClueLocationInfo
+ * @locb: a #GClueLocationInfo
+ *
+ * Compares two locations for equality, returning TRUE if they are equal.
+ *
+ * Returns: TRUE if the coordinates, accuracy, and description are equal
+ **/
+gboolean
+gclue_location_info_equal (GClueLocationInfo *loca,
+                           GClueLocationInfo *locb)
+{
+        gboolean ret;
+
+        g_return_val_if_fail (GCLUE_IS_LOCATION_INFO (loca), FALSE);
+        g_return_val_if_fail (GCLUE_IS_LOCATION_INFO (locb), FALSE);
+
+        ret = fabs (loca->priv->latitude - locb->priv->latitude) < EPSILON &&
+              fabs (loca->priv->longitude - locb->priv->longitude) < EPSILON &&
+              fabs (loca->priv->accuracy - locb->priv->accuracy) < EPSILON &&
+              g_strcmp0 (loca->priv->description, locb->priv->description) == 0;
+
+        return ret;
 }

@@ -82,6 +82,9 @@ GClueLocationInfo *gclue_location_info_new_with_description (gdouble     latitud
 double gclue_location_info_get_distance_from                (GClueLocationInfo *loca,
                                                              GClueLocationInfo *locb);
 
+gboolean gclue_location_info_equal                          (GClueLocationInfo *loca,
+                                                             GClueLocationInfo *locb);
+
 void gclue_location_info_set_description                    (GClueLocationInfo *loc,
                                                              const char    *description);
 
