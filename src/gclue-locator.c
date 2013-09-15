@@ -34,6 +34,7 @@ struct _GClueLocatorPrivate
         GClueIpclient *ipclient;
 
         GClueLocationInfo *location;
+        gdouble distance_travelled;
         guint threshold;
 
         GCancellable *cancellable;
@@ -156,37 +157,55 @@ gclue_locator_new (void)
         return g_object_new (GCLUE_TYPE_LOCATOR, NULL);
 }
 
-static void
-gclue_locator_update_location (GClueLocator      *locator,
-                               GClueLocationInfo *location)
+static gboolean
+below_threshold (GClueLocator      *locator,
+                 GClueLocationInfo *new_location)
 {
         GClueLocatorPrivate *priv = locator->priv;
-        gdouble accuracy, new_accuracy, distance;
         gdouble threshold_km;
-        const char *desc, *new_desc;
 
-        if (priv->location == NULL)
-                goto update;
+        /* Return immediately if the threshold isn't set */
+        if (priv->threshold == 0)
+                return FALSE;
 
-        accuracy = gclue_location_info_get_accuracy (priv->location);
-        new_accuracy = gclue_location_info_get_accuracy (location);
-        desc = gclue_location_info_get_description (priv->location);
-        new_desc = gclue_location_info_get_description (location);
-
+        priv->distance_travelled += gclue_location_info_get_distance_from (priv->location,
+                                                                           new_location);
         threshold_km = priv->threshold / 1000.0;
-        distance = gclue_location_info_get_distance_from (priv->location,
-                                                          location);
-        if (accuracy == new_accuracy &&
-            g_strcmp0 (desc, new_desc) == 0 &&
-            distance < threshold_km) {
+        if (priv->distance_travelled > threshold_km) {
+                priv->distance_travelled = 0;
+                return FALSE;
+        }
+
+        return TRUE;
+}
+
+static void
+gclue_locator_update_location (GClueLocator      *locator,
+                               GClueLocationInfo *new_location)
+{
+        GClueLocatorPrivate *priv = locator->priv;
+
+        if (priv->location != NULL && gclue_location_info_equal (priv->location,
+                                                                 new_location)) {
                 g_debug ("Location remain unchanged");
                 return;
         }
 
-        g_object_unref (priv->location);
-update:
+        if (priv->location != NULL && below_threshold (locator, new_location)) {
+                g_debug ("Updating location, below threshold");
+                g_object_set (priv->location,
+                              "latitude", gclue_location_info_get_latitude (new_location),
+                              "longitude", gclue_location_info_get_longitude (new_location),
+                              "accuracy", gclue_location_info_get_accuracy (new_location),
+                              "description", gclue_location_info_get_description (new_location),
+                              NULL);
+                return;
+        }
+
+        g_clear_object (&priv->location);
+        priv->location = g_object_ref (new_location);
+
         g_debug ("Updating location");
-        priv->location = g_object_ref (location);
         g_object_notify (G_OBJECT (locator), "location");
 }
 
